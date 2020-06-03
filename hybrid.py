@@ -12,6 +12,7 @@ import datetime as dt
 from plotSimulation import *
 from datacleaning import *
 import datetime as dt
+from statistics import mean
 
 def main():
     ## sidebar
@@ -84,21 +85,28 @@ def main():
         simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
         recovery_day=st.slider('Input recovery period (%)',1,28,step=1,value=14)
 
-        #TEST
+        beta=prediction.finalbeta()
+        newbeta=(100-(beta*100))
+        userbeta=round(newbeta, 2)
+        #st.write(userbeta)
+        #userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
+
+        #Additional adding by Yang
         betalist=model.show_betalist()
         minbeta=round(min(betalist),2)
         maxbeta=round(max(betalist),2)
-        averagebeta=(minbeta+maxbeta)*2
-
+        averagebeta=mean(betalist)
         beta=prediction.finalbeta()
         userbeta=round((100-(beta*100)), 2)
-        userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
-
+        #userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
         #NEW CALCULATION
-        maxlimit= (maxbeta * 1.1) - (minbeta * 0.9) / averagebeta
-        D=(maxbeta * 1.1) - (minbeta * 0.9) / (100 * averagebeta)
-        defaultbeta= (maxbeta * 1.1) / (D * averagebeta)
-        #socialdist=st.slider('New change Social distancing',D,maxlimit,step = 0.01,value =defaultbeta)
+        maxlimit= (maxbeta * 1.1 - beta * 0.9) / averagebeta
+        D= maxlimit / 100
+        defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
+        defaultbeta_round = round(defaultbeta,2)
+        socialdist=st.slider('New change Social distancing',0.00,100.00,step = 0.01,value =defaultbeta_round)
+        new_beta = 1.1*maxbeta - socialdist * D * averagebeta
+
 
         gamma = 1/recovery_day
 
@@ -109,24 +117,25 @@ def main():
         st.write('Curent value of (Beta) Social distancing factor : ', userbeta)
         st.write('Current Death rate is : ', deaths)
 
-        rr=round(beta/gamma,3)
+        #rr=round(beta/gamma,3)
+        rr=round(new_beta/gamma,3)
         st.write('Effective reproduction number(R0) (%): ', rr)
 
         S0 = N - I0 - R0
         t = np.linspace(0, simulation_period, 500)
 
         # The SIR model differential equations.
-        def deriv(y, t, N, beta, gamma):
+        def deriv(y, t, N, new_beta, gamma):
             S, I, R = y
-            dSdt = -beta * S * I / N
-            dIdt = beta * S * I / N - gamma * I
+            dSdt = -new_beta * S * I / N
+            dIdt = new_beta * S * I / N - gamma * I
             dRdt = gamma * I
             return dSdt, dIdt, dRdt
 
         # Initial conditions vector
         y0 = S0, I0, R0
         # Integrate the SIR equations over the time grid, t.
-        ret = odeint(deriv, y0, t, args=(N, beta, gamma))
+        ret = odeint(deriv, y0, t, args=(N, new_beta, gamma))
         S, I, R = ret.T
 
         #plotting_SIR_Simulation(S, I, R ,N,t,simulation_period,deaths)
