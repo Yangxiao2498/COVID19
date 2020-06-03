@@ -13,7 +13,7 @@ import re
 def fetch_data(url):
     r = requests.get(url)
     html_doc = r.text
-    soup = BeautifulSoup(html_doc)
+    soup = BeautifulSoup(html_doc,features="lxml")
     a_tags = soup.find_all('a')
     urls = ['https://raw.githubusercontent.com' + re.sub('/blob', '', link.get('href'))
             for link in a_tags if '.csv' in link.get('href')]
@@ -94,5 +94,3 @@ data = match_population(fips_url)
 # Daily data Cleaning
 total_data(data)
 
-# county='"New York City, New York, US"'
-# county_file(county)

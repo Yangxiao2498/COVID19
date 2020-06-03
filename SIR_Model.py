@@ -164,7 +164,6 @@ class Train_Dynamic_SIR:
 
         plt.show()
 
-
     def plot_fitting(self, train_df):
 
         fig, ax = plt.subplots(figsize=(16, 9))
@@ -182,6 +181,21 @@ class Train_Dynamic_SIR:
         plt.legend(['Estimated Infected', 'Real Infected'], fontsize='large')
 
         plt.show()
+
+
+    def plotlyplot(self, train_df):
+        x = train_df.index
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=x, y=train_df['I'], mode='markers', name='Actual'))
+        fig.add_trace(go.Scatter(x=x, y=self.estimation['Estimated_Infected'], mode='lines', name='Predicted'))
+        fig.update_layout(title="COVID19 model for New York County",
+                          xaxis_title="date",
+                          yaxis_title="population count",
+                          font=dict(family="Courier New, monospace", size=18, color="#7f7f7f"))
+        fig.show()
+
+    def show_betalist(self):
+        return self.betalist
 
 class Predict_SIR:
     """
@@ -240,6 +254,9 @@ class Predict_SIR:
 
     # -------------------------------------- Plots ----------------------------------------------------------------
 
+    def finalbeta(self):
+        return self.beta
+
     def plot(self, start , S=False):
 
         print("Maximum Active case: ",
@@ -268,6 +285,9 @@ class Predict_SIR:
         ax.set_facecolor('#FAFAFA')
         ax.get_yaxis().set_major_formatter(
             matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+
+
         plt.title('Prediction', fontsize=20)
         plt.show()
 
