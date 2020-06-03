@@ -109,7 +109,7 @@ def main():
 
         gamma = 1/recovery_day
 
-        beta=(100-new_beta)/100
+        beta=round(((100-new_beta)/100),2)
         st.subheader('SIR simulation for chosen Date '.format(df2['Date'].dt.date[recent-1]))
         st.write(dfdate[['Date','Population','Confirmed','Recovered','Deaths','Active']])
 
