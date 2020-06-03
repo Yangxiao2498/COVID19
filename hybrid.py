@@ -106,15 +106,14 @@ def main():
         defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
         defaultbeta_round = round(defaultbeta,2)
         socialdist=st.slider('New change Social distancing',0.00,100.00,step = 0.01,value =defaultbeta_round)
-        new_beta = round((1.1*maxbeta - socialdist * D * averagebeta),2)
-
+        new_beta = 1.1*maxbeta - socialdist * D * averagebeta
         gamma = 1/recovery_day
 
         #beta=round(((100-new_beta)/100),2)
         st.subheader('SIR simulation for chosen Date '.format(df2['Date'].dt.date[recent-1]))
         st.write(dfdate[['Date','Population','Confirmed','Recovered','Deaths','Active']])
 
-        st.write('Curent value of (Beta) Social distancing factor : ', new_beta)
+        st.write('Curent value of (Beta) Social distancing factor : ', socialdist)
         st.write('Current Death rate is : ', deaths)
 
         #rr=round(beta/gamma,3)
