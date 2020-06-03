@@ -81,8 +81,8 @@ def main():
         deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
         result = prediction.run(death_rate=deaths)  # death_rate is an assumption
 
-        simulation_period = st.slider('Input Simulation period',0,100,step = 1,value = 21)
-        recovery_day=st.slider('Input recovery period',1,28,step=1,value=14)
+        simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
+        recovery_day=st.slider('Input recovery period (%)',1,28,step=1,value=14)
 
         #TEST
         betalist=model.show_betalist()
@@ -92,7 +92,7 @@ def main():
 
         beta=prediction.finalbeta()
         userbeta=round((100-(beta*100)), 2)
-        userbeta=st.slider('Input Social distancing factor',0.00,100.00,step = 0.01,value =userbeta)
+        userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
 
         #NEW CALCULATION
         maxlimit= (maxbeta * 1.1) - (minbeta * 0.9) / averagebeta
@@ -103,14 +103,14 @@ def main():
         gamma = 1/recovery_day
 
         beta=(100-userbeta)/100
-        st.subheader('SIR simulation with latest customized parameters for '.format(df2['Date'].dt.date[recent-1]))
+        st.subheader('SIR simulation for chosen Date '.format(df2['Date'].dt.date[recent-1]))
         st.write(dfdate[['Date','Population','Confirmed','Recovered','Deaths','Active']])
 
         st.write('Curent value of (Beta) Social distancing factor : ', userbeta)
         st.write('Current Death rate is : ', deaths)
 
         rr=round(beta/gamma,3)
-        st.write('Effective reproduction number(R0): ', rr)
+        st.write('Effective reproduction number(R0) (%): ', rr)
 
         S0 = N - I0 - R0
         t = np.linspace(0, simulation_period, 500)
