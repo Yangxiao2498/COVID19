@@ -29,7 +29,7 @@ def main():
         '## County Level SIR Simulation Model'
         statesselected = st.selectbox("Select a State", countydf['State'])
         countylist=(countydf[countydf['State']==statesselected]['County']).tolist()[0]
-        countyselected = st.selectbox('Select a county for demo',countylist)
+        countyselected = st.selectbox('Select a County',countylist)
 
         name=countyselected+', '+statesselected.strip()+', '+'US'
 
@@ -100,42 +100,41 @@ def main():
         userbeta=round((100-(beta*100)), 2)
         #userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
         #NEW CALCULATION
-        maxlimit= (maxbeta * 1.1 - beta * 0.9) / averagebeta
+        maxlimit= round(((maxbeta * 1.1 - beta * 0.9) / averagebeta),2)
         D= maxlimit / 100
         defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
         defaultbeta_round = round(defaultbeta,2)
         socialdist=st.slider('New change Social distancing (%)',0.00,100.00,step = 0.01,value =defaultbeta_round)
-        new_beta = 1.1*maxbeta - socialdist * D * averagebeta
-
+        new_beta = round((1.1*maxbeta - socialdist * D * averagebeta),2)
 
         gamma = 1/recovery_day
 
-        beta=(100-userbeta)/100
+        beta=(100-new_beta)/100
         st.subheader('SIR simulation for chosen Date '.format(df2['Date'].dt.date[recent-1]))
         st.write(dfdate[['Date','Population','Confirmed','Recovered','Deaths','Active']])
 
-        st.write('Curent value of (Beta) Social distancing factor : ', userbeta)
+        st.write('Curent value of (Beta) Social distancing factor : ', beta)
         st.write('Current Death rate is : ', deaths)
 
         #rr=round(beta/gamma,3)
-        rr=round(new_beta/gamma,2)
+        rr=round(beta/gamma,2)
         st.write('Effective reproduction number(R0): ', rr)
 
         S0 = N - I0 - R0
         t = np.linspace(0, simulation_period, 500)
 
         # The SIR model differential equations.
-        def deriv(y, t, N, new_beta, gamma):
+        def deriv(y, t, N, beta, gamma):
             S, I, R = y
-            dSdt = -new_beta * S * I / N
-            dIdt = new_beta * S * I / N - gamma * I
+            dSdt = -beta * S * I / N
+            dIdt = beta * S * I / N - gamma * I
             dRdt = gamma * I
             return dSdt, dIdt, dRdt
 
         # Initial conditions vector
         y0 = S0, I0, R0
         # Integrate the SIR equations over the time grid, t.
-        ret = odeint(deriv, y0, t, args=(N, new_beta, gamma))
+        ret = odeint(deriv, y0, t, args=(N, beta, gamma))
         S, I, R = ret.T
 
         #plotting_SIR_Simulation(S, I, R ,N,t,simulation_period,deaths)
