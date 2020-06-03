@@ -27,7 +27,7 @@ def main():
 
     if page == 'Hybrid Model' :
         '## County Level SIR Simulation Model'
-        statesselected = st.selectbox("Select a County", countydf['State'])
+        statesselected = st.selectbox("Select a State", countydf['State'])
         countylist=(countydf[countydf['State']==statesselected]['County']).tolist()[0]
         countyselected = st.selectbox('Select a county for demo',countylist)
 
@@ -104,7 +104,7 @@ def main():
         D= maxlimit / 100
         defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
         defaultbeta_round = round(defaultbeta,2)
-        socialdist=st.slider('New change Social distancing',0.00,100.00,step = 0.01,value =defaultbeta_round)
+        socialdist=st.slider('New change Social distancing (%)',0.00,100.00,step = 0.01,value =defaultbeta_round)
         new_beta = 1.1*maxbeta - socialdist * D * averagebeta
 
 
@@ -118,8 +118,8 @@ def main():
         st.write('Current Death rate is : ', deaths)
 
         #rr=round(beta/gamma,3)
-        rr=round(new_beta/gamma,3)
-        st.write('Effective reproduction number(R0) (%): ', rr)
+        rr=round(new_beta/gamma,2)
+        st.write('Effective reproduction number(R0): ', rr)
 
         S0 = N - I0 - R0
         t = np.linspace(0, simulation_period, 500)
