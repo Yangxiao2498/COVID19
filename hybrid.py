@@ -18,7 +18,8 @@ def main():
 
     ## sidebar
     data=load_data('total_data.pkl')
-    countydf=pd.DataFrame(data.Combined_Key.str.split(',',2).tolist(),columns = ['County','State','Country']).drop('Country',axis=1)
+    data1 = data[data['Date'] == data['Date'].iloc[0]]
+    countydf=pd.DataFrame(data1.Combined_Key.str.split(',',2).tolist(),columns = ['County','State','Country']).drop('Country',axis=1)
     countydf=pd.DataFrame(countydf.groupby('State')['County'].apply(lambda x: x.values.tolist())).reset_index()
 
     st.sidebar.title("Navigation")
@@ -40,9 +41,20 @@ def main():
         date_select_box = list((last_day + dt.timedelta(days=x)).strftime('%m-%d-%y') for x in range(2,15))
         selected_pred_day = st.selectbox('Select a date that you will lift some preventative measures', date_select_box)
         train_df = df2[df2['Date'] <  df2.Date.iloc[-7]]
-
+        percentage_influence = np.linspace(10,100,10)
+        level = st.selectbox('Estimated percentage to reduce the current preventive measures by',percentage_influence)
         test_df = df2[(df2['Date'] >= df2.Date.iloc[-7]) & (df2['Date'] <= df2.Date.iloc[-1])]
-        btn = st.button('Do prediction and simulation!')
+        recent=len(df2)
+        Date=df2['Date'][recent-1] 
+        dfdate=df2[df2['Date']==Date]
+        confirmed = dfdate.loc[dfdate['Date']== Date,'Confirmed'].iloc[0]
+        deaths=round(((dfdate.loc[dfdate['Date']== Date,'Deaths'].iloc[0]) / confirmed )*100,3)
+        deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
+        simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
+        recovery_day=st.slider('Input recovery period (days)',1,28,step=1,value=14)
+        btn = st.button('Run Model')
+        
+        
         if btn:
 
             #Model training
@@ -98,12 +110,12 @@ def main():
             R0 = dfdate.loc[dfdate['Date']== Date,'R'].iloc[0] + dfdate.loc[dfdate['Date']== Date,'Deaths'].iloc[0]
 
 
-            deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
+            #deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
             result = prediction.run(death_rate=deaths)  # death_rate is an assumption
 
 
-            simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
-            recovery_day=st.slider('Input recovery period (days)',1,28,step=1,value=14)
+            #simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
+            #recovery_day=st.slider('Input recovery period (days)',1,28,step=1,value=14)
 
 
             #TEST
@@ -118,30 +130,32 @@ def main():
 
 
             beta=prediction.finalbeta()
+            #st.write(beta)
             #userbeta=round((100-(beta*100)), 2)
             #userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
             #NEW CALCULATION
-            maxlimit= (maxbeta * 1.1 - beta * 0.9) / averagebeta
+            maxlimit= (maxbeta * 1.2 - beta * 0.8) / averagebeta
             D= maxlimit / 100
-            defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
-            defaultbeta_round = round(defaultbeta,2)
+            defaultbeta= (maxbeta * 1.2-beta) / (D * averagebeta)
+            defaultbeta_round = round(defaultbeta,4)
             st.write('Current social distancing factor is ',defaultbeta_round)
 
-            percentage_influence = np.linspace(10,100,10)
-            level = st.selectbox('Estimated percentage to reduce the current preventive measures by',percentage_influence)
+            #percentage_influence = np.linspace(10,100,10)
+            #level = st.selectbox('Estimated percentage to reduce the current preventive measures by',percentage_influence)
             socialdist = defaultbeta_round * (1- level / 100)
-            new_beta = round((1.1*maxbeta - socialdist * D * averagebeta),4)
+            new_beta = round((1.2*maxbeta - socialdist * D * averagebeta),4)
+            #st.write(new_beta)
 
             ###############################################
             ###############################################
             gamma = 1/recovery_day
-
-            st.write('Social distancing factor of simulation: ',round(socialdist,2))
-
+            social_dist = f'**Social distancing factor of simulation: ** ** {socialdist:2f}**'
+            st.markdown(social_dist)
             #st.write('Current Death rate is : ', deaths)
 
-            rr=round(new_beta/gamma,3)
-            st.write('Effective reproduction number(R0) of current day: ', rr)
+            rr=round(beta/gamma,3)
+            R0_current = f'**Effective reproduction number(R0) of current day:** ** {rr:.2f}**'
+            st.markdown(R0_current)
             S0 = N - I0 - R0
             t = np.linspace(0, simulation_period, 500)
         
@@ -159,16 +173,15 @@ def main():
                 return dSdt, dIdt, dRdt
 
             # Initial conditions vector
-            S0_simu = result['S'].iloc[-1]
             I0_simu = result['I'].iloc[-1]
             R0_simu = result['R'].iloc[-1]
-
+            S0_simu = N - I0_simu - R0_simu
             y0_simu = S0_simu, I0_simu, R0_simu
 
             # Integrate the SIR equations over the time grid, t.
 
-            ret = odeint(deriv, y0_simu, t, args=(N, new_beta, gamma))
-            S, I, R = ret.T
+            #ret = odeint(deriv, y0_simu, t, args=(N, new_beta, gamma))
+            #S, I, R = ret.T
             #############################
             ##### Add second mitagation date ###
             #############################
@@ -200,11 +213,16 @@ def main():
                 ax.spines[spine].set_visible(False)
             plt.show()
             st.pyplot()
-            st.write('Effective reproduction number(R0) of simulation: ', round(new_beta *(1+level / 100) / gamma,2))
+            R0_simu = f'**Effective reproduction number(R0) of simulation: ** **{(new_beta / gamma):2f}**'
+            st.markdown(R0_simu)
             st.write('Susceptible cases by the end of simulation will be ',int(S[499]))
             st.write('Recovered cases by the end of simulation will be ',int(R[499]))
-            st.write('Infected cases by the end of simulation will be ',int(I[499]))
-            st.write('Total Death cases by the end of simulation will be ',int(deaths *(int(I[499])+int(R[499]))/100))
+            I_int = int(I[499])
+            Infected_mark = f'**Infected cases by the end of simulation will be ** **{I_int}**'
+            st.markdown(Infected_mark)
+            D_int =int(deaths *(int(I[499])+int(R[499]))/100)
+            Death_mark = f'**Total Death cases by the end of simulation will be ** **{D_int}**'
+            st.markdown(Death_mark) 
             #plotting_SIR_Recovery(plot_S, plot_I, plot_R,N, t,simulation_period)
 
             #####################
