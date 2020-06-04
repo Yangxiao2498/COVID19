@@ -1,198 +1,448 @@
+
 import streamlit as st
+
 import pandas as pd
+
 import numpy as np
+
 import matplotlib.pyplot as plt
+
 import altair as alt
+
 #import seaborn as sns; sns.set()
+
 from helpers import *
+
 from SIR_Model import *
+
 from scipy.integrate import odeint
+
 import matplotlib.animation as animation
-import datetime as dt
-from plotSimulation import *
-from datacleaning import *
+
 import datetime as dt
 
+from plotSimulation import *
+
+from datacleaning import *
+
+from datetime import datetime
+from statistics import mean
+
+
+
 def main():
+
     ## sidebar
+
     data=load_data('total_data.pkl')
+
     countydf=pd.DataFrame(data.Combined_Key.str.split(',',2).tolist(),columns = ['County','State','Country']).drop('Country',axis=1)
+
     countydf=pd.DataFrame(countydf.groupby('State')['County'].apply(lambda x: x.values.tolist())).reset_index()
 
 
+
+
+
     st.sidebar.title("Navigation")
+
     page = st.sidebar.radio("Go to",
+
                             ( 'Hybrid Model','Data Exploratory'))
 
+
+
     if page == 'Hybrid Model' :
+
         '## County Level SIR Simulation Model'
+
         statesselected = st.selectbox("Select a County", countydf['State'])
+
         countylist=(countydf[countydf['State']==statesselected]['County']).tolist()[0]
+
         countyselected = st.selectbox('Select a county for demo',countylist)
 
+
+
         name=countyselected+', '+statesselected.strip()+', '+'US'
+
+
 
         df2=data_cleaning(data,name)
 
+
+
         #data=data[data['Combined_Key']==name]
+
         #df2 = load_data('{}.pkl'.format(selected.lower()))
 
+
+
         #Model training
-        train_df = df2[df2['Date'] < df2.Date.iloc[-7]]
-        test_df = df2[(df2['Date'] > df2.Date.iloc[-7]) & (df2['Date'] < df2.Date.iloc[-1])]
+
+        train_df = df2[df2['Date'] <  df2.Date.iloc[-7]]
+
+        test_df = df2[(df2['Date'] >= df2.Date.iloc[-7]) & (df2['Date'] <= df2.Date.iloc[-1])]
+
+
 
         # initialize model
+
         #'## Training the Model'
+
         with st.spinner('Model Training in Progress...'):
+
             population = df2.Population[1]
+
             model = Train_Dynamic_SIR(epoch=5000, data=train_df,
+
                                       population=population, gamma=1 / 15, c=1, b=-10, a=0.08)
 
+
+
             # train the model
+
             estimate_df = model.train()
 
+
+
         "## Future Forecast"
+
         # initialize parameters for prediction
+
         population = model.population
-        I0 = train_df['I'].iloc[-1]
-        R0 = train_df['R'].iloc[-1]
+
+        I0 = test_df['I'].iloc[-1]
+
+        R0 = test_df['R'].iloc[-1]
+
         S0 = population - I0 - R0
+
         est_beta = model.beta
+
         est_alpha = model.a
+
         est_b = model.b
+
         est_c = model.c
 
-        forecast_period = 21
-        #forecast_period = st.slider("Choose the forecast period(days)", 5, 60,step =5, value=21)
+
+        ######################################
+        # Add select box for prediction date #
+        ######################################
+        last_day = data['Date'].max()
+        #Maximum prediction range is 14 days
+        date_select_box = list((last_day + dt.timedelta(days=x)).strftime('%m-%d-%y') for x in range(2,15))
+        selected_pred_day = st.selectbox('Select a date by which prediction model will end: (how to discripe this)', date_select_box)
+        time_type = datetime.strptime(selected_pred_day, '%m-%d-%y')
+        forecast_period = predict_period = (time_type - last_day).days
+        st.write('Prediction range from now is ',forecast_period)
+
+
+
 
         prediction = Predict_SIR(pred_period=forecast_period, S=S0, I=I0, R=R0, gamma=1 / 14,
+
                                  a=est_alpha, c=est_c, b=est_b, past_days=train_df['Day'].max())
+
         recent=len(df2)
+
         Date=df2['Date'][recent-1]
+
         dfdate=df2[df2['Date']==Date]
 
+
+
         #Calculating death rate
+
         N = dfdate.loc[dfdate['Date']== Date,'Population'].iloc[0]
+
         confirmed = dfdate.loc[dfdate['Date']== Date,'Confirmed'].iloc[0]
+
         deaths=round(((dfdate.loc[dfdate['Date']== Date,'Deaths'].iloc[0]) / confirmed )*100,3)
+
         I0 = dfdate.loc[dfdate['Date']== Date,'I'].iloc[0]
+
         R0 = dfdate.loc[dfdate['Date']== Date,'R'].iloc[0] + dfdate.loc[dfdate['Date']== Date,'Deaths'].iloc[0]
 
+
+
         deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
+
         result = prediction.run(death_rate=deaths)  # death_rate is an assumption
 
+
+
         simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 21)
-        recovery_day=st.slider('Input recovery period (%)',1,28,step=1,value=14)
+
+        recovery_day=st.slider('Input recovery period (days)',1,28,step=1,value=14)
+
+
 
         #TEST
+        ###########################
+        #Additional adding by Yang
+        ###########################
         betalist=model.show_betalist()
-        minbeta=round(min(betalist),2)
-        maxbeta=round(max(betalist),2)
-        averagebeta=(minbeta+maxbeta)*2
+
+        minbeta=round(min(betalist),4)
+
+        maxbeta=round(max(betalist),4)
+
+        averagebeta=mean(betalist)
+
+
 
         beta=prediction.finalbeta()
-        userbeta=round((100-(beta*100)), 2)
-        userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
+
+        #userbeta=round((100-(beta*100)), 2)
+
+        #userbeta=st.slider('Input Social distancing factor (%)',0.00,100.00,step = 0.01,value =userbeta)
 
         #NEW CALCULATION
-        maxlimit= (maxbeta * 1.1) - (minbeta * 0.9) / averagebeta
-        D=(maxbeta * 1.1) - (minbeta * 0.9) / (100 * averagebeta)
-        defaultbeta= (maxbeta * 1.1) / (D * averagebeta)
-        #socialdist=st.slider('New change Social distancing',D,maxlimit,step = 0.01,value =defaultbeta)
 
+        maxlimit= (maxbeta * 1.1 - beta * 0.9) / averagebeta
+
+        D= maxlimit / 100
+
+        defaultbeta= (maxbeta * 1.1-beta) / (D * averagebeta)
+        defaultbeta_round = round(defaultbeta,4)
+
+        socialdist=st.slider('New change Social distancing',0.0000,100.0000,step = 0.0001,value = defaultbeta_round)
+
+        new_beta = round((1.1*maxbeta - socialdist * D * averagebeta),4)
+
+        ###############################################
+        ###############################################
         gamma = 1/recovery_day
 
-        beta=(100-userbeta)/100
+
+
+        #beta=(100-userbeta)/100
+
         st.subheader('SIR simulation for chosen Date '.format(df2['Date'].dt.date[recent-1]))
+
         st.write(dfdate[['Date','Population','Confirmed','Recovered','Deaths','Active']])
 
-        st.write('Curent value of (Beta) Social distancing factor : ', userbeta)
+
+
+        st.write('Current value of (Beta) Social distancing factor : ', defaultbeta_round)
+        st.write('Current new_beta: ', new_beta)
+
         st.write('Current Death rate is : ', deaths)
 
-        rr=round(beta/gamma,3)
+
+
+        rr=round(new_beta/gamma,3)
+
         st.write('Effective reproduction number(R0) (%): ', rr)
 
+
+
         S0 = N - I0 - R0
+
         t = np.linspace(0, simulation_period, 500)
+        
+
+
 
         # The SIR model differential equations.
+
         def deriv(y, t, N, beta, gamma):
+
             S, I, R = y
+
             dSdt = -beta * S * I / N
+
             dIdt = beta * S * I / N - gamma * I
+
             dRdt = gamma * I
+
             return dSdt, dIdt, dRdt
 
-        # Initial conditions vector
-        y0 = S0, I0, R0
-        # Integrate the SIR equations over the time grid, t.
-        ret = odeint(deriv, y0, t, args=(N, beta, gamma))
-        S, I, R = ret.T
 
+
+        # Initial conditions vector
+        S0_simu = result['S'].iloc[-1]
+        I0_simu = result['I'].iloc[-1]
+        R0_simu = result['R'].iloc[-1]
+
+        y0_simu = S0_simu, I0_simu, R0_simu
+
+        # Integrate the SIR equations over the time grid, t.
+
+        ret = odeint(deriv, y0_simu, t, args=(N, new_beta, gamma))
+
+        S, I, R = ret.T
+        #############################
+        ##### Add second mitagation date ###
+        #############################
+        D_t = 500 / simulation_period
+        #mitigation_date = st.slider('Select how many days latter from now to do relax :', 1,simulation_period,step=1,value = round((1+simulation_period)/2))
+        level = st.slider('How much percentage influence on current R0(%):', -100,100,step=10,value = 0)
+        mitigation_beta = new_beta *(1+level / 100)
+        ret_first_intervention = odeint(deriv, y0_simu, t, args=(N, mitigation_beta, gamma))
+
+        S, I, R = ret_first_intervention.T
+        #mitigation_split_location = round(D_t * mitigation_date)
+        #mitigation_y0 = S[mitigation_split_location],I[mitigation_split_location],R[mitigation_split_location]
+        #mitigation_t = t[mitigation_split_location:]
+        #mitigation_ret = odeint(deriv,mitigation_y0,mitigation_t,args=(N,mitigation_beta,gamma))
+        #M_S, M_I, M_R = mitigation_ret.T
+        #plot_S = np.concatenate((S[0:(mitigation_split_location)], M_S))
+        #plot_I = np.concatenate((I[0:(mitigation_split_location)], M_I))
+        #plot_R = np.concatenate((R[0:(mitigation_split_location)], M_R))
+        st.write('Effective reproduction number(R0) on mitigation date (%): ', new_beta *(1+level / 100) / gamma)
+        st.write('Total Susceptible cases will be ',int(S[499]))
+        st.write('Total Recovered cases will be ',int(R[499]))
+        #PLOTTING
+        #plotting_SIR_Susceptible(plot_S, plot_I, plot_R ,N, t,simulation_period)
+
+        #plotting_SIR_Infection(plot_S, plot_I, plot_R ,N, t,simulation_period)
+        pred_data_date = result['Time'].iloc[1:(forecast_period + 1)] +df2['Day'].max()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(df2['Day'],df2['I'],color = 'y')
+        #ax.legend(['Actual data'])
+        ax.plot(pred_data_date-1, result['I'].iloc[1:(predict_period + 1)], color = 'r')
+        #ax.legend(['Prediction from curren date to ', selected_pred_day])
+        ax.plot((t+pred_data_date.iloc[-1]-1),I,color = 'r',linestyle='dashed')
+        #ax.legend(['Simulaiton period'])
+        plt.show()
+        st.pyplot()
+
+        #plotting_SIR_Recovery(plot_S, plot_I, plot_R,N, t,simulation_period)
+
+        #####################
+        ## Mitigation end ###
+        #####################
         #plotting_SIR_Simulation(S, I, R ,N,t,simulation_period,deaths)
-        plotting_SIR_Susceptible(S, I, R ,N, t,simulation_period)
-        plotting_SIR_Infection(S, I, R ,N, t,simulation_period)
-        plotting_SIR_Recovery(S, I, R ,N, t,simulation_period)
+
+        #plotting_SIR_Susceptible(S, I, R ,N, t,simulation_period)
+
+        #plotting_SIR_Infection(S, I, R ,N, t,simulation_period)
+
+        #plotting_SIR_Recovery(S, I, R ,N, t,simulation_period)
+
         #plotting_SIR_IR(S, I, R ,N,t,simulation_period)
 
+
+
     else:
+
         st.title('Explore County Level Data ')
+
         # load data
+
         statesselected = st.selectbox("Select a County", countydf['State'])
+
         countylist=(countydf[countydf['State']==statesselected]['County']).tolist()[0]
+
         countyselected = st.selectbox('Select a county for demo',countylist)
+
         name=countyselected+', '+statesselected.strip()+', '+'US'
+
+
 
         df=data_cleaning(data,name)
 
+
+
         # drawing
+
         base = alt.Chart(df).mark_bar().encode( x='monthdate(Date):O',).properties(width=500)
 
+
+
         red = alt.value('#f54242')
+
         a = base.encode(y='Confirmed').properties(title='Total Confirmed')
+
         st.altair_chart(a,use_container_width=True)
 
+
+
         b = base.encode(y='Deaths', color=red).properties(title='Total Deaths')
+
         st.altair_chart(b,use_container_width=True)
 
+
+
         c = base.encode(y='New Cases').properties(title='Daily New Cases')
+
         st.altair_chart(c,use_container_width=True)
 
+
+
         d = base.encode(y='New deaths', color=red).properties(title='Daily New Deaths')
+
         st.altair_chart(d,use_container_width=True)
+
+
+
 
 
         dates=df['Date'].dt.date.unique()
 
+
+
         selected_date = st.selectbox('Select a Date to Start',(dates))
+
         forecastdf=df[df['Date'].dt.date >=selected_date]
 
+
+
         if st.checkbox('Show Raw Data'):
+
             st.write(forecastdf)
 
+
+
         if st.checkbox('Visualization Chart'):
+
             df_temp = forecastdf.rename(columns = {'I':'Active Infection Cases','R':'Recovered Cases'})
+
             e = pd.melt(frame = df_temp,
+
                         id_vars='Date',
+
                         value_vars=['Active Infection Cases','Recovered Cases'],
+
                         var_name = 'type',
+
                         value_name = 'count')
 
+
+
             e = alt.Chart(e).mark_area().encode(
+
                 x=alt.X('Date:T', title='Date'),
+
                 y=alt.Y('count:Q',title = 'Number of Cases'),
+
                 color = alt.Color('type:O',legend = alt.Legend(title = None,orient = 'top-left'))
+
             ).configure_axis(
+
                 grid=False
+
             )
+
+
 
             st.altair_chart(e, use_container_width=True)
 
 
+
+
+
     st.title("About")
+
     st.info(
+
             "This app uses JHU data available in [Github]"
+
             "(https://github.com/CSSEGISandData/COVID-19) repository.\n\n")
 
-main()
 
+
+main()
