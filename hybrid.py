@@ -205,7 +205,7 @@ def main():
             #plotting_SIR_Infection(plot_S, plot_I, plot_R ,N, t,simulation_period)
             pred_data_date = result['Time'].iloc[0:(forecast_period + 1)] +df2['Day'].max()
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(df2['Day']-1,df2['I']-1,color = 'y',lw = 2,label = 'Actual data')
+            ax.plot(df2['Day']-1,df2['I']-1,color = 'b',lw = 2,label = 'Actual data')
             ax.plot(pred_data_date-1, result['I'].iloc[0:(predict_period+2)], color = 'r',label = 'Predictive data')
             ax.plot((t+pred_data_date.iloc[-1]-1),I,color = 'r',linestyle='dashed',label = 'Simulation data')
             legend = ax.legend()
