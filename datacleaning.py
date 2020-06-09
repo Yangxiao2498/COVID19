@@ -12,6 +12,8 @@ def data_cleaning(data,name):
     ## fill in the first half
     mean_value = df.loc[:7, 'New Cases'].mean() * 0.5 * 0.45
     std = df.loc[:7, 'New Cases'].mean() * 0.5 * 0.45 * 0.5
+    
+    np.random.seed(123)
     df.loc[:13, 'New recovered'] = np.random.normal(mean_value, std, 14).astype('int')
 
     # fill in recovery data
