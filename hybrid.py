@@ -44,9 +44,9 @@ def main():
         df2['I'] = df2['I'] + 1
         shape = df2.shape[0]
         last_day = data['Date'].max()
-        #Maximum prediction range is 14 days
-        date_select_box = list((last_day + dt.timedelta(days=x)).strftime('%m-%d-%y') for x in range(2,15))
-        selected_pred_day = st.selectbox('Select a date that you will lift some preventative measures', date_select_box)
+        #Maximum prediction range is from 14 days to 2 months
+        date_select_box = list((last_day + dt.timedelta(days=x)).strftime('%m-%d-%y') for x in range(14,74))
+        selected_pred_day = st.selectbox('Select a date to forcast to untill M/D/Y', date_select_box)
         train_df = df2[df2['Date'] <  df2.Date.iloc[-7]]
         test_df = df2[(df2['Date'] >= df2.Date.iloc[-7]) & (df2['Date'] <= df2.Date.iloc[-1])]
         recent=len(df2)
@@ -55,7 +55,7 @@ def main():
         confirmed = dfdate.loc[dfdate['Date']== Date,'Confirmed'].iloc[0]
         deaths=round(((dfdate.loc[dfdate['Date']== Date,'Deaths'].iloc[0]) / confirmed )*100,3)
         deaths = st.slider("Input a realistic death rate(%) ", 0.0, 30.0, value = deaths)
-        simulation_period = st.slider('Input Simulation period (days)',0,100,step = 1,value = 0)
+        simulation_period = st.slider('Input how many days to simulate after prediction date',0,100,step = 1,value = 0)
         df2['R(t+1)'] = df2['R'].shift(-1)
         df2['I(t+1)'] = df2['I'].shift(-1)
         df2['gamma'] = (df2['R(t+1)'] - df2['R'])/df2['I']
@@ -63,17 +63,30 @@ def main():
         df2['beta(t-3)'] = df2['beta'].shift(3)
         df2['beta(t-2)'] = df2['beta'].shift(2)
         df2['beta(t-1)'] = df2['beta'].shift(1)
+        ##
+        df2['beta(t-4)'] = df2['beta'].shift(4)
+        df2['beta(t-5)'] = df2['beta'].shift(5)
+        df2['beta(t-6)'] = df2['beta'].shift(6)
+        df2['beta(t-7)'] = df2['beta'].shift(7)
+        df2['gamma(t-4)'] = df2['gamma'].shift(4)
+        df2['gamma(t-5)'] = df2['gamma'].shift(5)
+        df2['gamma(t-6)'] = df2['gamma'].shift(6)
+        df2['gamma(t-7)'] = df2['gamma'].shift(7)
+        
+        ##
         df2['gamma(t-3)'] = df2['gamma'].shift(3)
         df2['gamma(t-2)'] = df2['gamma'].shift(2)
         df2['gamma(t-1)'] = df2['gamma'].shift(1)
-        beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)']][(shape-1):]
-        gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)']][(shape-1):]
-        train_beta_y = df2['beta'][3:(shape-7)]
-        train_beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)']][3:(shape-7)]
+        ##
+        beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)','beta(t-4)','beta(t-5)','beta(t-6)','beta(t-7)']][(shape-1):]
+        gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)','gamma(t-4)','gamma(t-5)','gamma(t-6)','gamma(t-7)']][(shape-1):]
+        ##
+        train_beta_y = df2['beta'][7:(shape-7)]
+        train_beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)','beta(t-4)','beta(t-5)','beta(t-6)','beta(t-7)']][7:(shape-7)]
         beta_ridge = Ridge(alpha=0.03)
         beta_ridge.fit(train_beta_X,train_beta_y)
-        train_gamma_y = df2['gamma'][3:(shape-7)]
-        train_gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)']][3:(shape-7)]
+        train_gamma_y = df2['gamma'][7:(shape-7)]
+        train_gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)','gamma(t-4)','gamma(t-5)','gamma(t-6)','gamma(t-7)']][7:(shape-7)]
         gamma_ridge=Ridge(alpha=10**(-6))
         gamma_ridge.fit(train_gamma_X,train_gamma_y)
         beta_= pd.DataFrame(beta_X.loc[shape-1]).transpose()
@@ -103,10 +116,10 @@ def main():
             ''## New method to estimate beta and gamma(time dependent)''
             
             test_beta_y = df2['beta'][(shape-7):]
-            test_beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)']][(shape-7):]
+            test_beta_X = df2[['beta(t-3)','beta(t-2)','beta(t-1)','beta(t-4)','beta(t-5)','beta(t-6)','beta(t-7)']][(shape-7):]
             beta_pred = beta_ridge.predict(test_beta_X)
             test_gamma_y = df2['beta'][(shape-7):]
-            test_gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)']][(shape-7):]
+            test_gamma_X = df2[['gamma(t-3)','gamma(t-2)','gamma(t-1)','gamma(t-4)','gamma(t-5)','gamma(t-6)','gamma(t-7)']][(shape-7):]
             gamma_pred = gamma_ridge.predict(test_gamma_X)
             I_pred = []
             I_pred.append(df2.loc[shape-1]['I'])
@@ -125,8 +138,8 @@ def main():
                 gamma_ = pd.DataFrame(gamma_X.loc[shape-1+i]).transpose()
                 beta_pred = beta_ridge.predict(beta_)
                 gamma_pred = gamma_ridge.predict(gamma_)
-                beta_X.loc[shape+i] = [beta_X['beta(t-2)'].loc[shape+i-1],beta_X['beta(t-1)'].loc[shape+i-1],beta_pred[0]]
-                gamma_X.loc[shape+i] = [gamma_X['gamma(t-2)'].loc[shape+i-1],gamma_X['gamma(t-1)'].loc[shape+i-1],gamma_pred[0]]
+                beta_X.loc[shape+i] = [beta_X['beta(t-2)'].loc[shape+i-1],beta_X['beta(t-1)'].loc[shape+i-1],beta_pred[0],beta_X['beta(t-3)'].loc[shape+i-1],beta_X['beta(t-4)'].loc[shape+i-1],beta_X['beta(t-5)'].loc[shape+i-1],beta_X['beta(t-6)'].loc[shape+i-1]]
+                gamma_X.loc[shape+i] = [gamma_X['gamma(t-2)'].loc[shape+i-1],gamma_X['gamma(t-1)'].loc[shape+i-1],gamma_pred[0],gamma_X['gamma(t-3)'].loc[shape+i-1],gamma_X['gamma(t-4)'].loc[shape+i-1],gamma_X['gamma(t-5)'].loc[shape+i-1],gamma_X['gamma(t-6)'].loc[shape+i-1]]
                 data = round((1+beta_pred[0]-gamma_pred[0])*I_pred[-1])
                 S_to_I = round((beta_pred[0]-gamma_pred[0])*I_pred[-1])
                 I_to_R = round((gamma_pred[0])*I_pred[-1])
