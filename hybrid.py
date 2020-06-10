@@ -237,6 +237,14 @@ def main():
                 ax.plot(pred_data_date-1, pred_data['I'].iloc[0:(predict_period+2)], color = 'r',label = 'Predictive data')
                 ax.plot((t_lag_plot + pred_data_date.iloc[-1]-2),I_lag_end,color = 'r',linestyle = 'dashed')
                 ax.plot((t + (lag+1) + pred_data_date.iloc[-1]-2),I,color = 'r',linestyle='dashed',label = 'Simulation data')
+                
+                # change X axis to actual date instead of days
+                begin = data['Date'].min()
+                num_days = len(df2) + forecast_period + simulation_period + 5
+                labels = list((begin + dt.timedelta(days=x)).strftime('%m-%d') for x in range(0,num_days,5))
+                plt.xticks(list(range(0,num_days,5)), labels, rotation=45)
+                ####
+                
                 legend = ax.legend()
                 for spine in ('top', 'right', 'bottom', 'left'):
                     ax.spines[spine].set_visible(False)
@@ -257,6 +265,14 @@ def main():
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax.plot(df2['Day']-1,df2['I'],color = 'y',lw = 2,label = 'Actual data')
                 ax.plot(pred_data_date-1, pred_data['I'].iloc[0:(predict_period+2)], color = 'r',label = 'Predictive data')
+                
+                # change X axis to actual date instead of days
+                begin = data['Date'].min()
+                num_days = len(df2) + forecast_period + simulation_period + 5
+                labels = list((begin + dt.timedelta(days=x)).strftime('%m-%d') for x in range(0,num_days,5))
+                plt.xticks(list(range(0,num_days,5)), labels, rotation=45)
+                ####
+                
                 legend = ax.legend()
                 for spine in ('top', 'right', 'bottom', 'left'):
                     ax.spines[spine].set_visible(False)
