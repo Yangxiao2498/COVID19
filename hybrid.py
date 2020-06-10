@@ -35,7 +35,7 @@ def main():
     if page == 'Hybrid Model' :
         '## County Level SIR Simulation Model'
         statesselected = st.selectbox("Select a State", countydf['State'])
-        countylist=(countydf[countydf['State']==statesselected]['County']).tolist()[0]
+        countylist=sorted(((countydf[countydf['State']==statesselected]['County']).tolist()[0]),key=lambda s: s.strip('"'))
         if statesselected == countydf['State'][3]:    
             countylist.remove("Unassigned")
         countyselected = st.selectbox('Select a County',countylist)
